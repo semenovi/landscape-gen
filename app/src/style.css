@@ -1,0 +1,142 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e1620;
+  --panel-bg: rgba(16, 22, 30, 0.85);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --text: #e7edf3;
+  --text-dim: #9fb0c0;
+  --accent: #7fc4ff;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#viewport {
+  position: absolute;
+  inset: 0;
+}
+
+#viewport canvas {
+  display: block;
+}
+
+#header {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  max-width: 360px;
+  pointer-events: none;
+}
+
+#header h1 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+#header p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+#sources-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-height: 42vh;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#sources-panel summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  list-style: none;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#sources-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+#sources-panel summary::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+
+#sources-panel[open] summary::before {
+  content: "▾ ";
+}
+
+#sources {
+  overflow-y: auto;
+  padding: 10px 14px;
+}
+
+.sources-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sources-list li {
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
+}
+
+.sources-list a {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sources-list a:hover {
+  text-decoration: underline;
+}
+
+.sources-meta {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.sources-note {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+  line-height: 1.4;
+}
