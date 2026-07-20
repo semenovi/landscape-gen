@@ -38,6 +38,19 @@ export interface ErosionPass<P extends Record<string, number | boolean> = Record
   apply(field: Heightfield, params: P): void;
 }
 
+export interface HydrologyResult {
+  filledHeight: Float32Array;
+  flowAccumulation: Float32Array;
+  lakeDepth: Float32Array;
+  riverMask: Uint8Array;
+}
+
+export interface HydrologyPass<P extends Record<string, number | boolean> = Record<string, number | boolean>> {
+  meta: AlgorithmMeta;
+  params: ParamSpec[];
+  apply(field: Heightfield, params: P): HydrologyResult;
+}
+
 export function defaultsFromSpecs<T extends Record<string, number | boolean>>(specs: ParamSpec[]): T {
   const out: Record<string, number | boolean> = {};
   for (const spec of specs) out[spec.key] = spec.default;

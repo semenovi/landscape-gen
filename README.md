@@ -16,23 +16,30 @@ from the review can be plugged in without rewriting the rest:
 ```
 HeightfieldGenerator (noise/fBm, ...)
   then ErosionPass[] (thermal, hydraulic, tectonic uplift, ...)
+  then HydrologyPass (drainage network: rivers and lakes)
   then mesher: heightfield to geometry (grid mesh with per-vertex color today,
        voxel/marching cubes planned)
   then three.js render
 ```
 
-- `src/core/types.ts`: interfaces for `HeightfieldGenerator` and
-  `ErosionPass`. Every module carries an `AlgorithmMeta` (authors, year,
-  venue, link) and a `ParamSpec[]` (parameter description). The GUI controls
-  and the sources panel in the UI are both built from these, so wiring in a
-  new algorithm does not require maintaining a separate citation list.
+- `src/core/types.ts`: interfaces for `HeightfieldGenerator`, `ErosionPass`
+  and `HydrologyPass`. Every module carries an `AlgorithmMeta` (authors,
+  year, venue, link) and a `ParamSpec[]` (parameter description). The GUI
+  controls and the sources panel in the UI are both built from these, so
+  wiring in a new algorithm does not require maintaining a separate
+  citation list.
 - `src/algorithms/noise/fbmNoise.ts`: base height layer, fBm over simplex
   noise (Perlin 1985, Gustavson 2005, Musgrave, Kolb and Mace 1989).
 - `src/algorithms/erosion/thermalErosion.ts`: thermal erosion by angle of
   repose (Musgrave, Kolb and Mace, SIGGRAPH 1989).
+- `src/algorithms/hydrology/drainageNetwork.ts`: depression filling
+  (Priority-Flood, Barnes, Lehman and Mulla 2014) to form lakes, then D8
+  flow accumulation (O'Callaghan and Mark, 1984) to route drainage and carve
+  a river network where accumulated flow exceeds a threshold.
 - `src/terrain/mesh.ts`: heightfield to `THREE.BufferGeometry` with
   per-vertex color (biome coloring by height and slope lives in
-  `src/terrain/color.ts`). This is a 2.5D representation, one height per
+  `src/terrain/color.ts`; lake and river coloring uses the `HydrologyResult`
+  from the drainage pass). This is a 2.5D representation, one height per
   column. The next step per `review_3d.md` is replacing this mesher with a
   voxel/SDF plus marching cubes stage to support overhangs and caves.
 - `src/render/scene.ts`: scene, camera, lighting, orbit controls.
@@ -41,8 +48,9 @@ HeightfieldGenerator (noise/fBm, ...)
 
 ### Adding a new algorithm
 
-1. Implement a `HeightfieldGenerator` or `ErosionPass` (use the existing
-   modules as a template), fill in `meta` with a link to the paper.
+1. Implement a `HeightfieldGenerator`, `ErosionPass` or `HydrologyPass` (use
+   the existing modules as a template), fill in `meta` with a link to the
+   paper.
 2. Register the module and its parameters in `src/main.ts`
    (`bindParamsToGui`, and add `meta` to the list passed to `renderSources`).
 

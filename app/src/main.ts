@@ -6,6 +6,7 @@ import { defaultsFromSpecs } from "./core/types";
 import type { ParamSpec } from "./core/types";
 import { fbmNoiseGenerator, type FbmParams } from "./algorithms/noise/fbmNoise";
 import { thermalErosionPass, type ThermalErosionParams } from "./algorithms/erosion/thermalErosion";
+import { drainageNetworkPass, type DrainageNetworkParams } from "./algorithms/hydrology/drainageNetwork";
 import { buildHeightfieldMesh } from "./terrain/mesh";
 import { SceneManager } from "./render/scene";
 import { renderSources } from "./ui/sources";
@@ -14,8 +15,10 @@ const config = {
   resolution: 128,
   worldSize: 100,
   erosionEnabled: true,
+  hydrologyEnabled: true,
   noise: defaultsFromSpecs<FbmParams>(fbmNoiseGenerator.params),
   erosion: defaultsFromSpecs<ThermalErosionParams>(thermalErosionPass.params),
+  hydrology: defaultsFromSpecs<DrainageNetworkParams>(drainageNetworkPass.params),
 };
 
 const viewport = document.querySelector<HTMLDivElement>("#viewport");
@@ -30,7 +33,9 @@ function regenerate(): void {
     thermalErosionPass.apply(field, config.erosion);
   }
 
-  const geometry = buildHeightfieldMesh(field, { worldSize: config.worldSize });
+  const hydrology = config.hydrologyEnabled ? drainageNetworkPass.apply(field, config.hydrology) : undefined;
+
+  const geometry = buildHeightfieldMesh(field, { worldSize: config.worldSize, hydrology });
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.92,
@@ -70,9 +75,13 @@ const erosionFolder = gui.addFolder(thermalErosionPass.meta.name);
 erosionFolder.add(config, "erosionEnabled").name("Включить эрозию").onChange(scheduleRegenerate);
 bindParamsToGui(erosionFolder, config.erosion, thermalErosionPass.params);
 
+const hydrologyFolder = gui.addFolder(drainageNetworkPass.meta.name);
+hydrologyFolder.add(config, "hydrologyEnabled").name("Включить реки и озёра").onChange(scheduleRegenerate);
+bindParamsToGui(hydrologyFolder, config.hydrology, drainageNetworkPass.params);
+
 const sourcesContainer = document.querySelector<HTMLDivElement>("#sources");
 if (!sourcesContainer) throw new Error("#sources element not found");
-renderSources(sourcesContainer, [fbmNoiseGenerator.meta, thermalErosionPass.meta]);
+renderSources(sourcesContainer, [fbmNoiseGenerator.meta, thermalErosionPass.meta, drainageNetworkPass.meta]);
 
 regenerate();
 sceneManager.start();
