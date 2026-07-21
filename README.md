@@ -10,28 +10,37 @@ builds to static files and targets GitHub Pages.
 
 ## Architecture
 
-The generation pipeline is split into explicit stages so that new algorithms
-from the review can be plugged in without rewriting the rest:
+The generation pipeline follows a modifier-stack model: a single base
+object, then an ordered, toggleable stack of modifiers, then a fixed
+post-process, then the mesher:
 
 ```
-HeightfieldGenerator (noise/fBm, ...)
-  then ErosionPass[] (thermal, hydraulic, tectonic uplift, ...)
-  then HydrologyPass (drainage network: rivers and lakes)
-  then mesher: heightfield to geometry (grid mesh with per-vertex color today,
-       voxel/marching cubes planned)
+HeightfieldGenerator, the base object (noise/fBm today)
+  then an ordered ErosionPass[] stack, each entry independently enabled
+       and reorderable (thermal, hydraulic today; tectonic uplift, ... next)
+  then HydrologyPass, a fixed post-process modifier (drainage network:
+       rivers and lakes). Reads the terrain produced above, cannot run
+       standalone, so it is not a separate generation mode.
+  then mesher: heightfield to geometry (grid mesh with per-vertex color
+       today, voxel/marching cubes planned)
   then three.js render
 ```
 
 - `src/core/types.ts`: interfaces for `HeightfieldGenerator`, `ErosionPass`
   and `HydrologyPass`. Every module carries an `AlgorithmMeta` (authors,
-  year, venue, link) and a `ParamSpec[]` (parameter description). The GUI
-  controls and the sources panel in the UI are both built from these, so
-  wiring in a new algorithm does not require maintaining a separate
-  citation list.
+  year, venue, link) and a `ParamSpec[]` (parameter description). Both the
+  modifier-stack UI and the sources panel are built from these, so wiring in
+  a new algorithm does not require maintaining a separate citation list.
 - `src/algorithms/noise/fbmNoise.ts`: base height layer, fBm over simplex
   noise (Perlin 1985, Gustavson 2005, Musgrave, Kolb and Mace 1989).
 - `src/algorithms/erosion/thermalErosion.ts`: thermal erosion by angle of
   repose (Musgrave, Kolb and Mace, SIGGRAPH 1989).
+- `src/algorithms/erosion/hydraulicErosion.ts`: droplet-based hydraulic
+  erosion. Each droplet flows downhill, picks up and deposits sediment based
+  on slope and speed, carving valleys rather than just sliding material to
+  the nearest lower neighbor like the thermal pass does. A simplified,
+  single-agent approximation of the classic hydraulic erosion line (Musgrave,
+  Kolb and Mace, 1989; Mei, Decaudin and Hu, 2007).
 - `src/algorithms/hydrology/drainageNetwork.ts`: depression filling
   (Priority-Flood, Barnes, Lehman and Mulla 2014) to form lakes, then D8
   flow accumulation (O'Callaghan and Mark, 1984) to route drainage and carve
@@ -43,6 +52,10 @@ HeightfieldGenerator (noise/fBm, ...)
   column. The next step per `review_3d.md` is replacing this mesher with a
   voxel/SDF plus marching cubes stage to support overhangs and caves.
 - `src/render/scene.ts`: scene, camera, lighting, orbit controls.
+- `src/ui/stackPanel.ts`: builds the modifier-stack cards (enable checkbox,
+  name, "by Author, Year" byline linking to the paper, reorder buttons,
+  collapsible parameter sliders). `src/main.ts` owns the `erosionStack`
+  array and re-renders this panel on reorder.
 - `src/ui/sources.ts`: renders the "Sources" panel in the UI from the
   `AlgorithmMeta` of the modules currently wired in.
 
@@ -51,13 +64,15 @@ HeightfieldGenerator (noise/fBm, ...)
 1. Implement a `HeightfieldGenerator`, `ErosionPass` or `HydrologyPass` (use
    the existing modules as a template), fill in `meta` with a link to the
    paper.
-2. Register the module and its parameters in `src/main.ts`
-   (`bindParamsToGui`, and add `meta` to the list passed to `renderSources`).
+2. Register it in `src/main.ts`: push it onto `erosionStack` for an
+   `ErosionPass`, or wire it in directly next to `fbmNoiseGenerator` /
+   `drainageNetworkPass` for the other two kinds, then add its `meta` to the
+   list passed to `renderSources`.
 
-Further candidates from the review: hydraulic erosion (virtual pipes, Mei et
-al. 2007), tectonic uplift plus stream power (Cordonnier et al. 2016), a
-multi-layered heightmap for overhangs (Nilles et al., VMV 2024), voxel/SDF
-meshing (Marching Cubes or Dual Contouring on WebGPU compute).
+Further candidates from the review: tectonic uplift plus stream power
+(Cordonnier et al. 2016), a multi-layered heightmap for overhangs (Nilles et
+al., VMV 2024), voxel/SDF meshing (Marching Cubes or Dual Contouring on
+WebGPU compute).
 
 ## Local development
 

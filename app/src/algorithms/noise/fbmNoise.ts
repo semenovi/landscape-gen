@@ -1,5 +1,6 @@
 import { createNoise2D } from "simplex-noise";
 import type { HeightfieldGenerator, ParamSpec } from "../../core/types";
+import { mulberry32 } from "../../core/random";
 
 export interface FbmParams extends Record<string, number | boolean> {
   seed: number;
@@ -18,17 +19,6 @@ const params: ParamSpec[] = [
   { key: "lacunarity", label: "Lacunarity (рост частоты)", type: "number", min: 1.5, max: 3, step: 0.05, default: 2.0 },
   { key: "amplitude", label: "Высота (амплитуда)", type: "number", min: 1, max: 60, step: 1, default: 18 },
 ];
-
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export const fbmNoiseGenerator: HeightfieldGenerator<FbmParams> = {
   meta: {
