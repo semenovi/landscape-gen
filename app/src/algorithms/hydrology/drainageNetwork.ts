@@ -1,4 +1,5 @@
 import type { Heightfield, HydrologyPass, HydrologyResult, ParamSpec } from "../../core/types";
+import { D8_NEIGHBOR_OFFSETS, computeD8FlowRouting } from "../../core/flowRouting";
 
 export interface DrainageNetworkParams extends Record<string, number | boolean> {
   lakeMinDepth: number;
@@ -10,11 +11,6 @@ const params: ParamSpec[] = [
   { key: "lakeMinDepth", label: "Мин. глубина озера", type: "number", min: 0.02, max: 2, step: 0.02, default: 0.15 },
   { key: "riverThreshold", label: "Порог русла (доля площади)", type: "number", min: 0.002, max: 0.1, step: 0.001, default: 0.015 },
   { key: "riverCarveDepth", label: "Врез русла", type: "number", min: 0, max: 4, step: 0.1, default: 1.2 },
-];
-
-const NEIGHBOR_OFFSETS: ReadonlyArray<readonly [number, number]> = [
-  [-1, 0], [1, 0], [0, -1], [0, 1],
-  [-1, -1], [1, -1], [-1, 1], [1, 1],
 ];
 
 class MinHeap {
@@ -98,7 +94,7 @@ function priorityFloodFill(width: number, depth: number, data: Float32Array): Fl
     const x = index % width;
     const z = (index / width) | 0;
 
-    for (const [dx, dz] of NEIGHBOR_OFFSETS) {
+    for (const [dx, dz] of D8_NEIGHBOR_OFFSETS) {
       const nx = x + dx;
       const nz = z + dz;
       if (nx < 0 || nx >= width || nz < 0 || nz >= depth) continue;
@@ -112,43 +108,6 @@ function priorityFloodFill(width: number, depth: number, data: Float32Array): Fl
   }
 
   return filled;
-}
-
-function computeFlowAccumulation(width: number, depth: number, filled: Float32Array): Float32Array {
-  const n = width * depth;
-  const flowTarget = new Int32Array(n).fill(-1);
-
-  for (let z = 0; z < depth; z++) {
-    for (let x = 0; x < width; x++) {
-      const idx = z * width + x;
-      let steepest = 0;
-      let target = -1;
-
-      for (const [dx, dz] of NEIGHBOR_OFFSETS) {
-        const nx = x + dx;
-        const nz = z + dz;
-        if (nx < 0 || nx >= width || nz < 0 || nz >= depth) continue;
-        const nIdx = nz * width + nx;
-        const dist = Math.hypot(dx, dz);
-        const drop = (filled[idx] - filled[nIdx]) / dist;
-        if (drop > steepest) {
-          steepest = drop;
-          target = nIdx;
-        }
-      }
-
-      flowTarget[idx] = target;
-    }
-  }
-
-  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => filled[b] - filled[a]);
-  const accumulation = new Float32Array(n).fill(1);
-  for (const idx of order) {
-    const target = flowTarget[idx];
-    if (target >= 0) accumulation[target] += accumulation[idx];
-  }
-
-  return accumulation;
 }
 
 export const drainageNetworkPass: HydrologyPass<DrainageNetworkParams> = {
@@ -175,7 +134,7 @@ export const drainageNetworkPass: HydrologyPass<DrainageNetworkParams> = {
     const n = width * depth;
 
     const filledHeight = priorityFloodFill(width, depth, data);
-    const flowAccumulation = computeFlowAccumulation(width, depth, filledHeight);
+    const { accumulation: flowAccumulation } = computeD8FlowRouting(width, depth, filledHeight);
 
     const lakeDepth = new Float32Array(n);
     for (let i = 0; i < n; i++) {

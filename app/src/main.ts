@@ -2,8 +2,9 @@ import "./style.css";
 import * as THREE from "three";
 
 import { defaultsFromSpecs } from "./core/types";
-import type { ErosionPass, ParamSpec } from "./core/types";
+import type { ErosionPass, HeightfieldGenerator, ParamSpec } from "./core/types";
 import { fbmNoiseGenerator, type FbmParams } from "./algorithms/noise/fbmNoise";
+import { upliftStreamPowerGenerator, type UpliftStreamPowerParams } from "./algorithms/tectonic/upliftStreamPower";
 import { thermalErosionPass, type ThermalErosionParams } from "./algorithms/erosion/thermalErosion";
 import { hydraulicErosionPass, type HydraulicErosionParams } from "./algorithms/erosion/hydraulicErosion";
 import { drainageNetworkPass, type DrainageNetworkParams } from "./algorithms/hydrology/drainageNetwork";
@@ -18,12 +19,24 @@ interface ErosionStackEntry {
   params: Record<string, number | boolean>;
 }
 
+interface GeneratorOption {
+  generator: HeightfieldGenerator;
+  params: Record<string, number | boolean>;
+}
+
 const gridConfig = {
   resolution: 128,
   worldSize: 100,
 };
 
-const noiseParams = defaultsFromSpecs<FbmParams>(fbmNoiseGenerator.params);
+const generatorOptions: GeneratorOption[] = [
+  { generator: fbmNoiseGenerator as HeightfieldGenerator, params: defaultsFromSpecs<FbmParams>(fbmNoiseGenerator.params) },
+  {
+    generator: upliftStreamPowerGenerator as HeightfieldGenerator,
+    params: defaultsFromSpecs<UpliftStreamPowerParams>(upliftStreamPowerGenerator.params),
+  },
+];
+let activeGeneratorIndex = 0;
 
 const erosionStack: ErosionStackEntry[] = [
   {
@@ -48,7 +61,8 @@ if (!viewport) throw new Error("#viewport element not found");
 const sceneManager = new SceneManager(viewport);
 
 function regenerate(): void {
-  const field = fbmNoiseGenerator.generate(gridConfig.resolution, gridConfig.resolution, noiseParams);
+  const active = generatorOptions[activeGeneratorIndex];
+  const field = active.generator.generate(gridConfig.resolution, gridConfig.resolution, active.params);
 
   for (const entry of erosionStack) {
     if (entry.enabled) entry.pass.apply(field, entry.params);
@@ -97,6 +111,27 @@ function buildGridControls(): HTMLElement {
   return card;
 }
 
+function buildGeneratorSelect(): HTMLElement {
+  const select = document.createElement("select");
+  select.className = "stack-select";
+
+  generatorOptions.forEach((option, index) => {
+    const opt = document.createElement("option");
+    opt.value = String(index);
+    opt.textContent = option.generator.meta.name;
+    select.appendChild(opt);
+  });
+
+  select.value = String(activeGeneratorIndex);
+  select.addEventListener("change", () => {
+    activeGeneratorIndex = Number(select.value);
+    renderStackPanel();
+    scheduleRegenerate();
+  });
+
+  return select;
+}
+
 function renderStackPanel(): void {
   stackPanel.innerHTML = "";
 
@@ -104,11 +139,13 @@ function renderStackPanel(): void {
   stackPanel.appendChild(buildGridControls());
 
   stackPanel.appendChild(buildSectionHeading("Базовый объект"));
+  stackPanel.appendChild(buildGeneratorSelect());
+  const activeGenerator = generatorOptions[activeGeneratorIndex];
   stackPanel.appendChild(
     buildStackCard({
-      meta: fbmNoiseGenerator.meta,
-      specs: fbmNoiseGenerator.params,
-      values: noiseParams,
+      meta: activeGenerator.generator.meta,
+      specs: activeGenerator.generator.params,
+      values: activeGenerator.params,
       onChange: scheduleRegenerate,
     }),
   );
@@ -175,6 +212,7 @@ const sourcesContainer = document.querySelector<HTMLDivElement>("#sources");
 if (!sourcesContainer) throw new Error("#sources element not found");
 renderSources(sourcesContainer, [
   fbmNoiseGenerator.meta,
+  upliftStreamPowerGenerator.meta,
   thermalErosionPass.meta,
   hydraulicErosionPass.meta,
   drainageNetworkPass.meta,

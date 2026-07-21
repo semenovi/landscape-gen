@@ -47,6 +47,7 @@ export function buildParamRow(spec: ParamSpec, values: Record<string, number | b
   number.max = max;
   number.step = step;
   number.value = range.value;
+  number.addEventListener("wheel", () => number.blur());
 
   range.addEventListener("input", () => {
     number.value = range.value;
@@ -164,10 +165,19 @@ export function buildStackCard(options: StackCardOptions): HTMLElement {
     toggle.textContent = expanded ? "▾" : "▸";
   };
   applyExpanded();
-  toggle.addEventListener("click", () => {
+
+  const toggleExpanded = () => {
     expanded = !expanded;
     applyExpanded();
+  };
+
+  const HEADER_CLICK_EXCLUDE = [".stack-enable", ".stack-controls", ".stack-author a"];
+  header.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (HEADER_CLICK_EXCLUDE.some((selector) => target.closest(selector))) return;
+    toggleExpanded();
   });
+  toggle.addEventListener("click", toggleExpanded);
 
   return card;
 }
